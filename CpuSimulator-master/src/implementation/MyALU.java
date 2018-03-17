@@ -31,11 +31,13 @@ public class MyALU {
        			result = input1 + input2;
        			break;
        		case STORE:
-       			result = input1 + input2;
+       			result = oper0;
        			break;
        		case CMP:
-       			result = input1 == input2 ? 1 : 0;
+       			result = input1 > input2 ? 1 : 0;
        			break;
+       		case OUT:
+       			System.out.println("@@output: " + oper0);
        		
        }
       

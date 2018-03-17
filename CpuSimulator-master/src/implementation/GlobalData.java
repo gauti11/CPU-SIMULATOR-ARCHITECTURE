@@ -20,12 +20,15 @@ public class GlobalData implements IGlobals {
     public InstructionSequence program;
 	public int program_counter = 0;
     public int[] register_file = new int[32];
-    public int[] memory = new int[1000];
+    public int[] memory = new int[101];
     public int memAddress = 0;
     public boolean[] register_invalid = new boolean[32];
     public boolean isStalled = false;
     public boolean branchTaken = false;
     public int cycle = 0;
+    public boolean flushDecode = false;
+    public int completedExecution = 0;
+    public int globalCounter = 0;
 
     @Override
     public void reset() {

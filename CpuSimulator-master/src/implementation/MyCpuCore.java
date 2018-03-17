@@ -73,24 +73,22 @@ public class MyCpuCore extends CpuCore<GlobalData>{
     	//AllMyStages.Writeback wb = new AllMyStages.Writeback(this, MemoryToWriteback, VoidRegister.getVoidRegister());
 		
 //Enum updated with HALT with the writeback		
-		int counter = 0;
-		
-    	while(EnumOpcode.needsWriteback(EnumOpcode.HALT))
+		//GlobalData globals = (GlobalData)core.getGlobalResources();
+    	while(globals.completedExecution==0)
     	{
     		
-    		System.out.println("Code Cycle" + counter);
-    		if(counter == 40)
-    			break;
-    		counter++;
+    		advanceClock();
+    		globals.globalCounter++;
     	}
     		
-    	for(int i=0;i<1100;i++)
+    	/*
+    	for(int i=0;i<2230;i++)
 		{
     		//System.out.println("Code Cycle" + i);
     	//	i++;
     		advanceClock();
     		 
-    	}
+    	}*/
     	
     	
     }

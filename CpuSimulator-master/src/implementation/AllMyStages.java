@@ -60,8 +60,12 @@ public class AllMyStages {
 			if(!globals.isStalled)
 				globals.program_counter++;
 				*/
+			
 			if(globals.branchTaken)
 				ins.setOpcode(EnumOpcode.INVALID);
+			
+			if(ins.getOpcode() == EnumOpcode.JMP)
+				globals.branchTaken = true;
 			output.setInstruction(ins);
 		}
 
@@ -85,7 +89,11 @@ public class AllMyStages {
 			// Don't forget to check for stall conditions, such as when
 			// nextStageCanAcceptWork() returns false.
 			GlobalData globals = (GlobalData)core.getGlobalResources();
-			System.out.println("Cycle: " + (++globals.cycle));
+/*			if(globals.cycle == 2230)
+			{
+				System.out.println("");
+			}*/
+			//System.out.println("Cycle: " + (globals.cycle++));
             if(!globals.isStalled)
                 globals.program_counter++;
 		}
@@ -141,19 +149,30 @@ public class AllMyStages {
 			
 			if(ins.getOpcode() == EnumOpcode.STORE)
 			{
-				System.out.println("");
+				//System.out.println("");
 			}
 
 			GlobalData globals = (GlobalData)core.getGlobalResources();
 			int[] regfile = globals.register_file;
-			System.out.println("Value of R1:" + globals.register_file[1]);
+			/*System.out.println("Value of R1:" + globals.register_file[1]);
+			System.out.println("Value of R2:" + globals.register_file[2]);
+			System.out.println("Value of R2:" + globals.register_file[3]);
+			System.out.println("Value of R10:" + globals.register_file[10]);
+			
+			System.out.println("Mem R[1]:" + globals.memory[1]);
+			System.out.println("Mem R[74]:" + globals.memory[74]);*/
 			boolean isStalled = false;
 			// Do what the decode stage does:
 			// - Look up source operands
 			// - Decode instruction
 			// - Resolve branches
 			
-		
+			if(globals.flushDecode)
+			{
+				ins.setOpcode(EnumOpcode.INVALID);
+				globals.flushDecode = false;
+			}
+			
 			//If sources are invalid then stall
 			if(ins.getOpcode() == EnumOpcode.ADD || ins.getOpcode() == EnumOpcode.LOAD || ins.getOpcode() == EnumOpcode.STORE || ins.getOpcode() == EnumOpcode.CMP)
 			{
@@ -174,76 +193,129 @@ public class AllMyStages {
 				}
 			}
 			
-			/*switch (ins.getOpcode()) {
-			case MOVC:
-				
-				break;
-			case ADD:
-				if(ins.getSrc1().getRegisterNumber() != -1 && globals.register_invalid[ins.getSrc1().getRegisterNumber()])
-				{
-					isStalled = true;
-				}
-				if(ins.getSrc2().getRegisterNumber() != -1 && globals.register_invalid[ins.getSrc2().getRegisterNumber()])
-				{
-					isStalled = true;
-				}
-				break;
-			case LOAD:
-				if(ins.getSrc1().getRegisterNumber() != -1 && globals.register_invalid[ins.getSrc1().getRegisterNumber()])
-				{
-					isStalled = true;
-				}
-				if(ins.getSrc2().getRegisterNumber() != -1 && globals.register_invalid[ins.getSrc2().getRegisterNumber()])
-				{
-					isStalled = true;
-				}
-				break;
-			case STORE:
-				if(ins.getOper0().getRegisterNumber() != -1 && globals.register_invalid[ins.getOper0().getRegisterNumber()])
-				{
-					isStalled = true;
-				}
-				if(ins.getSrc2().getRegisterNumber() != -1 && globals.register_invalid[ins.getSrc2().getRegisterNumber()])
-				{
-					isStalled = true;
-				}
-				if(ins.getSrc1().getRegisterNumber() != -1 && globals.register_invalid[ins.getSrc1().getRegisterNumber()])
-				{
-					isStalled = true;
-				}
-				if(ins.getSrc2().getRegisterNumber() != -1 && globals.register_invalid[ins.getSrc2().getRegisterNumber()])
-				{
-					isStalled = true;
-				}
-				break;
-
-			default:
-				break;
-			}*/
-			globals.isStalled = isStalled;
-			System.out.println("Decode isStalled: " + isStalled);
-			if(ins.getOpcode() != EnumOpcode.STORE && ins.getOpcode() != EnumOpcode.JMP)
-				globals.register_invalid[ins.getOper0().getRegisterNumber()] = true;
+			
+			if(ins.getOpcode() == EnumOpcode.JMP) {
+				globals.flushDecode = true;
+        		globals.branchTaken = false;
+        		globals.program_counter = ins.getLabelTarget().getAddress()-1;
+                
+			}
 			
 			if(ins.getOpcode() == EnumOpcode.BRA) {
-
-                if ("init_list".equals(ins.getLabelTarget().getName())) {// ins.getLabelTarget().getName().equals("")
-                	if(globals.branchTaken)
-                		globals.program_counter = ins.getLabelTarget().getAddress();
-                	globals.branchTaken = false;
-                    /*if(regfile[ins.getOper0().getRegisterNumber()]  == 4) {
-                        globals.program_counter = ins.getLabelTarget().getAddress() - 1;
-                        //globals.branchInDecode = false;
-                    }
-                    else{
-                        globals.program_counter = 5;
-                        //globals.branchInDecode = false;
-                    }*/
+				globals.flushDecode = true;
+        		globals.branchTaken = true;
+                if (ins.getLabelTarget().getName().equalsIgnoreCase("init_list")) {// ins.getLabelTarget().getName().equals("")
+                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
+                	{
+                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
+                			globals.branchTaken = false;
+                	}
+                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
+                	{
+                		globals.program_counter = 5;
+                		globals.flushDecode = false;
+                		globals.branchTaken = false;
+                	}
+                }
+                if (ins.getLabelTarget().getName().equalsIgnoreCase("next_outer") && ins.getComparison().name().equalsIgnoreCase("EQ")) {// ins.getLabelTarget().getName().equals("")
+                	if(globals.register_file[2] == 0 && !isStalled)
+                	{
+                		globals.program_counter = ins.getLabelTarget().getAddress()-1;
+            			globals.branchTaken = false;
+                	}
+                	else if(globals.register_file[2] != 0 && !isStalled)
+                	{
+                		globals.program_counter = 11;
+                		globals.flushDecode = false;
+                		globals.branchTaken = false;
+                	}
+                	/*if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
+                	{
+                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
+                			globals.branchTaken = false;
+                	}
+                	else if(globals.register_file[2] == 0 && !isStalled)
+                	{
+                		globals.program_counter = ins.getLabelTarget().getAddress()-1;
+            			globals.branchTaken = false;
+                	}
+                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
+                	{
+                		globals.program_counter = 11;
+                		globals.flushDecode = false;
+                		globals.branchTaken = false;
+                	}*/
+                }
+                
+                if (ins.getLabelTarget().getName().equalsIgnoreCase("outer_loop") && ins.getComparison().name().equalsIgnoreCase("LT")) {// ins.getLabelTarget().getName().equals("")
+                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
+                	{
+                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
+                			globals.branchTaken = false;
+                	}
+                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
+                	{
+                		globals.program_counter = 21;
+                		globals.flushDecode = false;
+                		globals.branchTaken = false;
+                	}
+                }
+                
+                if (ins.getLabelTarget().getName().equalsIgnoreCase("next_outer") && ins.getComparison().name().equalsIgnoreCase("GE")) {// ins.getLabelTarget().getName().equals("")
+                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
+                	{
+                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
+                			globals.branchTaken = false;
+                	}
+                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
+                	{
+                		globals.program_counter = 16;
+                		globals.flushDecode = false;
+                		globals.branchTaken = false;
+                	}
+                }
+                
+                if (ins.getLabelTarget().getName().equalsIgnoreCase("next_print") && ins.getComparison().name().equalsIgnoreCase("EQ")) {// ins.getLabelTarget().getName().equals("")
+                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
+                	{
+                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
+                			globals.branchTaken = false;
+                	}
+                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
+                	{
+                		globals.program_counter = 26;
+                		globals.flushDecode = false;
+                		globals.branchTaken = false;
+                	}
+                }
+                
+                if (ins.getLabelTarget().getName().equalsIgnoreCase("print_loop") && ins.getComparison().name().equalsIgnoreCase("LT")) {// ins.getLabelTarget().getName().equals("")
+                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
+                	{
+                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
+                			globals.branchTaken = false;
+                	}
+                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
+                	{
+                		globals.program_counter = 30;
+                		globals.flushDecode = false;
+                		globals.branchTaken = false;
+                	}
                 }
 			}
 			
+			globals.isStalled = isStalled;
+			//System.out.println("Decode isStalled: " + isStalled);
+			if(!globals.flushDecode && ins.getOpcode() != EnumOpcode.INVALID && ins.getOpcode() != EnumOpcode.STORE && ins.getOpcode() != EnumOpcode.JMP && ins.getOpcode() != EnumOpcode.BRA ) {
+				int oper0 = ins.getOper0().isRegister() ? ins.getOper0().getRegisterNumber() : 31;
+				globals.register_invalid[oper0] = true;
+			}
 			
-			output.setInstruction(ins);
+			if(globals.flushDecode)
+				globals.flushDecode = false;
+			
+			//if(ins.getOpcode()!=EnumOpcode.INVALID)
+				output.setInstruction(ins);
 			// Set other data that's passed to the next stage.
 		}
 
@@ -270,11 +342,11 @@ public class AllMyStages {
             int source2 = ins.getSrc2().getRegisterNumber() == -1 ? ins.getSrc2().getValue() : globals.register_file[ins.getSrc2().getRegisterNumber()];
             int oper0 =   ins.getOper0().getRegisterNumber() == -1 ? ins.getOper0().getValue() : globals.register_file[ins.getOper0().getRegisterNumber()];
 			//ins.getOpcode(2)
-			System.out.println(ins.getOpcode().toString() + ", source1 value:" + ins.getSrc1().getRegisterNumber() + ":" + source1 + ", Source2 value:" +  ins.getSrc2().getRegisterNumber() + ":" + source2 + ", oper0:" +  ins.getOper0().getRegisterNumber() + ":" + oper0);
+			//System.out.println(ins.getOpcode().toString() + ", source1 value:" + ins.getSrc1().getRegisterNumber() + ":" + source1 + ", Source2 value:" +  ins.getSrc2().getRegisterNumber() + ":" + source2 + ", oper0:" +  ins.getOper0().getRegisterNumber() + ":" + oper0);
 
-            if(ins.getOpcode() == EnumOpcode.STORE || ins.getOpcode() == EnumOpcode.LOAD)
+            if(ins.getOpcode() == EnumOpcode.LOAD)//ins.getOpcode() == EnumOpcode.STORE || 
             {
-            	System.out.println("");
+            	//System.out.println("");
             	//source1 = ins.getSrc1().getRegisterNumber();
             	//oper0 = ins.getOper0().getRegisterNumber();
             }
@@ -283,18 +355,41 @@ public class AllMyStages {
 			
 			if(ins.getOpcode()== EnumOpcode.CMP)
 			{
-				if(result == 0)
-					globals.branchTaken = true;
-				else
-					globals.branchTaken = false;
+				globals.flushDecode = false;
+        		globals.branchTaken = false;
+				//if(result == 0)
+					//globals.branchTaken = true;
+				//else
+					//globals.branchTaken = false;
 				//if ("init_list".equals(ins.getLabelTarget().getName()) && result == 0) // ins.getLabelTarget().getName().equals("")
                 	//globals.program_counter = ins.getLabelTarget().getAddress()-1;
 			}
 			
 			if(ins.getOpcode() == EnumOpcode.STORE)
 				globals.memAddress= result;
-			else
+			//else TODO: removed else 
+			if(ins.getOpcode() != EnumOpcode.BRA)
 				ins.getOper0().setValue(result);
+			
+			if(ins.getOpcode() == EnumOpcode.BRA) {
+
+                if (ins.getLabelTarget().getName().equalsIgnoreCase("init_list")) {// ins.getLabelTarget().getName().equals("")
+                	//if(ins.getOper0().getValue() == 0)
+                		//globals.program_counter = ins.getLabelTarget().getAddress();
+                	//globals.branchTaken = false;
+                    /*if(regfile[ins.getOper0().getRegisterNumber()]  == 4) {
+                        globals.program_counter = ins.getLabelTarget().getAddress() - 1;
+                        //globals.branchInDecode = false;
+                    }
+                    else{
+                        globals.program_counter = 5;
+                        //globals.branchInDecode = false;
+                    }*/
+                }
+                
+                
+			}
+			
 			// Fill output with what passes to Memory stage...
 			output.setInstruction(ins);
 			// Set other data that's passed to the next stage.
@@ -323,6 +418,10 @@ public class AllMyStages {
 			if(ins.getOpcode() == EnumOpcode.STORE)
             {
             	mem[globals.memAddress] = ins.getOper0().getValue();
+            	int src1 = globals.register_file[ins.getSrc1().getRegisterNumber()];
+            	int src2 = ins.getSrc2().getValue();
+            	mem[src1+src2] = globals.memAddress;
+            	
             }
 
 			output.setInstruction(ins);
@@ -378,6 +477,11 @@ public class AllMyStages {
 			
 
 				if (input.getInstruction().getOpcode() == EnumOpcode.HALT) {
+					globals.completedExecution = 1;
+					//System.out.println("Code Cycle " + globals.globalCounter);
+					
+					/*for(int i = 0; i < globals.memory.length; i++)
+						System.out.print(globals.memory[i] + " ");*/
 					// Stop the simulation
 				}
 			}
