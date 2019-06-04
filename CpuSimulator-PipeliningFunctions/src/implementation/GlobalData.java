@@ -5,44 +5,73 @@
  */
 package implementation;
 
+import baseclasses.InstructionBase;
+import baseclasses.PropertiesContainer;
+import java.util.Map;
+import java.util.Set;
 import utilitytypes.IGlobals;
-
-import java.util.ArrayList;
-
 import tools.InstructionSequence;
+import utilitytypes.IProperties;
+import utilitytypes.IRegFile;
+import utilitytypes.RegisterFile;
 
 /**
  * As a design choice, some data elements that are accessed by multiple
  * pipeline stages are stored in a common object.
  * 
- * TODO:  Add to this any additional global or shared state that is missing.
- * 
  * @author 
  */
-public class GlobalData implements IGlobals {
-    public InstructionSequence program;
-	public int program_counter = 0;
-    public int[] register_file = new int[32];
-    public int register = 9999;
-    public int value = 0;
-    public int register_value = 0;
-    public int[] memory = new int[105];
-    public int memAddress = 0;
-    public boolean[] register_invalid = new boolean[32];
-    public boolean isStalled = false;
-    public boolean branchTaken = false;
-    public int cycle = 0;
-    public boolean flushDecode = false;
-    public int completedExecution = 0;
-    public int globalCounter = 0;
+public class GlobalData extends PropertiesContainer implements IGlobals {
+    protected InstructionSequence program;
+    protected IRegFile regfile;
+    
 
     @Override
     public void reset() {
-        program_counter = 0;
-        register_file = new int[32];
+        setup();
     }
     
+    public static final int BRANCH_STATE_NULL = 0;
+    public static final int BRANCH_STATE_WAITING = 1;
+    public static final int BRANCH_STATE_TAKEN = 2;
+    public static final int BRANCH_STATE_NOT_TAKEN = 3;
+    public static int waitingTime = 0;
+    public static float floatingDivRes = 0;
     
-    // Other global and shared variables here....
 
+
+    @Override
+    public void setup() {
+        this.setProperty(PROGRAM_COUNTER, (int)0);
+        this.setProperty(MAIN_MEMORY, new int[1024]);
+        this.setProperty("running", false);
+        this.setProperty("program_counter_takenbranch", (int)0);
+        this.setProperty("branch_state_fetch", BRANCH_STATE_NULL);
+        this.setProperty("branch_state_decode", BRANCH_STATE_NULL);
+        this.regfile = new RegisterFile(32);
+    }
+
+    @Override
+    public InstructionBase getInstructionAt(int pc_address) {
+        return program.getInstructionAt(pc_address);
+    }
+
+    @Override
+    public void loadProgram(InstructionSequence seq) {
+        program = seq;
+    }
+    
+    public GlobalData() {
+        setup();
+    }
+
+    @Override
+    public IRegFile getRegisterFile() {
+        return regfile;
+    }
+    
+    public void advanceClock() {
+        super.advanceClock();
+        getRegisterFile().advanceClock();
+    }
 }

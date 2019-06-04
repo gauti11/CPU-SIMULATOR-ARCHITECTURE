@@ -24,20 +24,23 @@ public enum EnumOpcode {
     ASR - arithmetic shift right (replicates sign bit)
     LSR - logical shift right (inserts zeros on the left)
     XOR - bitwise exclusive OR
-    CMP - subtract two registers, put comparison flags into destination reg
-    ROL - rotate left
-    ROR - rotate right
-    MULS - signed multiply
-    MULU - unsigned multiply
-    DIVS - signed divide
-    DIVU - unsigned divide
+    CMP - Integer compare -- do the same as SUB
+    MUL - integer multiply
+    DIV - integer divide
+    MOD - integer remainder/modulus
     BRA - branch with condition
     JMP - unconditionally branch
     CALL - Branches to target address, puts return address in register
     LOAD - load from memory
     STORE - store to memory
-    MOVC - load register from literal in instruction
-    OUT - print contents of src1 to display
+    MOV - load register from literal or register source
+    OUT - print contents of oper0 to display
+    FADD - Float add
+    FSUB - Float subtract (use same unfunctional unit as for FADD)
+    FMUL - Float multiply
+    FDIV - Float divide
+    FOUT - Print oper0 as floating point number
+    FCMP - Floating point compare -- do the same as FSUB
     HALT - stop simulation
     NOP - no operation
     INVALID - ???
@@ -45,11 +48,12 @@ public enum EnumOpcode {
     */
     
     
-    ADD, SUB, AND, OR, SHL, ASR, LSR, XOR, CMP, ROL, ROR,
-    MULS, MULU, DIVS, DIVU,
+    ADD, SUB, AND, OR, SHL, ASR, LSR, XOR, CMP,
+    MUL, DIV, MOD,
     BRA, JMP, CALL, 
-    LOAD, STORE, MOVC, OUT,
-    HALT, NOP, INVALID, NULL;
+    LOAD, STORE, MOV, OUT,
+    HALT, NOP, INVALID, NULL,
+    FADD, FSUB, FMUL, FDIV, FOUT, FCMP;
     
     public static EnumOpcode fromString(String name) {
         name = name.trim().toUpperCase();
@@ -64,12 +68,14 @@ public enum EnumOpcode {
     
     static final EnumSet<EnumOpcode> writebackSet = 
             EnumSet.of(ADD, SUB, AND, OR, 
-            SHL, ASR, LSR, XOR, CMP, ROL, ROR, MULS, MULU, DIVS, DIVU,
-            CALL, LOAD, MOVC);
+            SHL, ASR, LSR, XOR, CMP, MUL, DIV, MOD,
+            CALL, LOAD, MOV, FADD, FSUB, FMUL, FDIV, FCMP);
     static final EnumSet<EnumOpcode> oper0SourceSet = 
-            EnumSet.of(BRA, OUT, STORE, JMP);
+            EnumSet.of(BRA, OUT, STORE, JMP, FOUT);
     static final EnumSet<EnumOpcode> branchSet = 
             EnumSet.of(BRA, JMP, CALL);
+    static final EnumSet<EnumOpcode> memorySet = 
+            EnumSet.of(LOAD, STORE);
 
     /**
      * Does the given opcode produce a value that must be written back to the
@@ -114,5 +120,17 @@ public enum EnumOpcode {
     public boolean isBranch() {
         return branchSet.contains(this);
     }
+
+    public boolean isNull() {
+        return this == NULL;
+    }
     
+    
+    public static boolean accessesMemory(EnumOpcode op) {
+        return memorySet.contains(op);
+    }
+    
+    public boolean accessesMemory() {
+        return memorySet.contains(this);
+    }
 }

@@ -5,13 +5,24 @@
  */
 package implementation;
 
-import implementation.AllMyLatches.*;
+import tools.MyALU;
 import utilitytypes.EnumOpcode;
 import baseclasses.InstructionBase;
 import baseclasses.PipelineRegister;
 import baseclasses.PipelineStageBase;
 import voidtypes.VoidLatch;
 import baseclasses.CpuCore;
+import baseclasses.Latch;
+import cpusimulator.CpuSimulator;
+import static utilitytypes.EnumOpcode.*;
+import utilitytypes.ICpuCore;
+import utilitytypes.IGlobals;
+import utilitytypes.IPipeReg;
+import static utilitytypes.IProperties.*;
+import utilitytypes.IRegFile;
+import utilitytypes.Logger;
+import utilitytypes.Operand;
+import voidtypes.VoidLabelTarget;
 
 /**
  * The AllMyStages class merely collects together all of the pipeline stage 
@@ -29,545 +40,651 @@ import baseclasses.CpuCore;
  * @author
  */
 public class AllMyStages {
-	/*** Fetch Stage ***/
-	static class Fetch extends PipelineStageBase<VoidLatch,FetchToDecode> {
-		public Fetch(CpuCore core, PipelineRegister input, PipelineRegister output) {
-			super(core, input, output);
-		}
-
-		@Override
-		public String getStatus() {
-			// Generate a string that helps you debug.
-			return null;
-		}
-
-		@Override
-		public void compute(VoidLatch input, FetchToDecode output) {
-			GlobalData globals = (GlobalData)core.getGlobalResources();
-			int pc = globals.program_counter;
-			// Fetch the instruction
-			InstructionBase ins = globals.program.getInstructionAt(pc);
-			if (ins.isNull()) return;
-
-			// Do something idempotent to compute the next program counter.
-
-			// Don't forget branches, which MUST be resolved in the Decode
-			// stage.  You will make use of global resources to commmunicate
-			// between stages.
-
-			// Your code goes here...
-			/*System.out.println("Decode isStalled: " + globals.isStalled);
-			if(!globals.isStalled)
-				globals.program_counter++;
-				*/
-			
-			if(globals.branchTaken)
-				ins.setOpcode(EnumOpcode.INVALID);
-			
-			if(ins.getOpcode() == EnumOpcode.JMP)
-				globals.branchTaken = true;
-			output.setInstruction(ins);
-		}
-
-		@Override
-		public boolean stageWaitingOnResource() {
-			// Hint:  You will need to implement this for when branches
-			// are being resolved.
-			return false;
-		}
-
-
-		/**
-		 * This function is to advance state to the next clock cycle and
-		 * can be applied to any data that must be updated but which is
-		 * not stored in a pipeline register.
-		 */
-		@Override
-		public void advanceClock() {
-			// Hint:  You will need to implement this help with waiting
-			// for branch resolution and updating the program counter.
-			// Don't forget to check for stall conditions, such as when
-			// nextStageCanAcceptWork() returns false.
-			GlobalData globals = (GlobalData)core.getGlobalResources();
-		if(globals.cycle == 833)
-			{
-				System.out.println("");
-			}
-			System.out.println("Cycle: " + (globals.cycle++));
-            if(!globals.isStalled)
-                globals.program_counter++;
-		}
-	}
-
-
-	/*** Decode Stage ***/
-	static class Decode extends PipelineStageBase<FetchToDecode,DecodeToExecute> {
-		public Decode(CpuCore core, PipelineRegister input, PipelineRegister output) {
-			super(core, input, output);
-		}
-
-		@Override
-		public boolean stageWaitingOnResource() {
-			// Hint:  You will need to implement this to deal with 
-			// dependencies.
-			GlobalData globals = (GlobalData)core.getGlobalResources();
-            if(globals.isStalled)
-                return true;
-
-            return false;
-		}
-
-
-		@Override
-		public void compute(FetchToDecode input, DecodeToExecute output) {
-			InstructionBase ins = input.getInstruction();
-
-			// You're going to want to do something like this:
-
-			// VVVVV LOOK AT THIS VVVVV
-			ins = ins.duplicate();
-			// ^^^^^ LOOK AT THIS ^^^^^
-
-			// The above will allow you to do things like look up register 
-			// values for operands in the instruction and set them but avoid 
-			// altering the input latch if you're in a stall condition.
-			// The point is that every time you enter this method, you want
-			// the instruction and other contents of the input latch to be
-			// in their original state, unaffected by whatever you did 
-			// in this method when there was a stall condition.
-			// By cloning the instruction, you can alter it however you
-			// want, and if this stage is stalled, the duplicate gets thrown
-			// away without affecting the original.  This helps with 
-			// idempotency.
-
-
-
-			// These null instruction checks are mostly just to speed up
-			// the simulation.  The Void types were created so that null
-			// checks can be almost completely avoided.
-			if (ins.isNull()) return;
-			
-			if(ins.getOpcode() == EnumOpcode.STORE)
-			{
-				//System.out.println("");
-			}
-
-			GlobalData globals = (GlobalData)core.getGlobalResources();
-		
-			int[] regfile = globals.register_file;
-			System.out.println("Value of R1:" + globals.register_file[1]);
-			System.out.println("Value of R2:" + globals.register_file[2]);
-			if(globals.register_file[1] == 99)
-			{
-				System.out.println();
-			}
-			System.out.println("Value of R3:" + globals.register_file[3]);
-			System.out.println("Value of R10:" + globals.register_file[10]);
-			/*
-			System.out.println("Mem R[1]:" + globals.memory[1]);
-			System.out.println("Mem R[74]:" + globals.memory[74]);*/
-			boolean isStalled = false;
-			// Do what the decode stage does:
-			// - Look up source operands
-			// - Decode instruction
-			// - Resolve branches
-			
-			if(globals.flushDecode)
-			{
-				ins.setOpcode(EnumOpcode.INVALID);
-				globals.flushDecode = false;
-			}
-			System.out.println("Forwarded reg="+globals.register+", value="+globals.value);
-			//If sources are invalid then stall
-			if(ins.getOpcode() == EnumOpcode.ADD || ins.getOpcode() == EnumOpcode.LOAD || ins.getOpcode() == EnumOpcode.STORE || ins.getOpcode() == EnumOpcode.CMP)
-			{
-				if(ins.getSrc1().getRegisterNumber() != -1 && globals.register_invalid[ins.getSrc1().getRegisterNumber()])
-				{
-					isStalled = true;
-					
-				}
-				if(ins.getSrc1().getRegisterNumber() != -1 && ins.getSrc1().getRegisterNumber() == globals.register)
-				{
-					ins.getSrc1().setValue(globals.value);
-					isStalled = false;
-				}
-				if(ins.getSrc2().getRegisterNumber() != -1 && globals.register_invalid[ins.getSrc2().getRegisterNumber()])
-				{
-					isStalled = true;
-					
-				}
-				if(ins.getSrc2().getRegisterNumber() != -1 && ins.getSrc2().getRegisterNumber() == globals.register)
-				{
-					ins.getSrc2().setValue(globals.value);
-					isStalled = false;
-				}
-			}
-			if(ins.getOpcode() == EnumOpcode.STORE || ins.getOpcode() == EnumOpcode.BRA)
-			{
-				if(ins.getOper0().getRegisterNumber() != -1 && globals.register_invalid[ins.getOper0().getRegisterNumber()])
-				{
-					isStalled = true;
-				}
-				/*if(ins.getOper0().getRegisterNumber() != -1 && globals.register_invalid[ins.getOper0().getRegisterNumber()] && ins.getOpcode() == EnumOpcode.STORE)
-				{
-					isStalled = true;		
-				}
-				if(ins.getOper0().getRegisterNumber() != -1 && ins.getOper0().getRegisterNumber() == globals.register && ins.getOpcode() == EnumOpcode.STORE)
-				{
-					ins.getOper0().setValue(globals.value);
-					isStalled = false;
-				}*/
-
-					
-				
-				
-			}
-			
-			
-			if(ins.getOpcode() == EnumOpcode.JMP) {
-				globals.flushDecode = true;
-        		globals.branchTaken = false;
-        		globals.program_counter = ins.getLabelTarget().getAddress()-1;
+    /*** Fetch Stage ***/
+    static class Fetch extends PipelineStageBase {
+        public Fetch(ICpuCore core) {
+            super(core, "Fetch");
+        }
+        
+        // Does this state have an instruction it wants to send to the next
+        // stage?  Note that this is computed only for display and debugging
+        // purposes.
+        boolean has_work;
                 
-			}
-			
-			if(ins.getOpcode() == EnumOpcode.BRA) {
-				globals.flushDecode = true;
-        		globals.branchTaken = true;
-                if (ins.getLabelTarget().getName().equalsIgnoreCase("init_list")) {// ins.getLabelTarget().getName().equals("")
-                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
-                	{
-                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
-                			globals.branchTaken = false;
-                	}
-                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
-                	{
-                		globals.program_counter = 5;
-                		globals.flushDecode = false;
-                		globals.branchTaken = false;
-                	}
-                }
-                if (ins.getLabelTarget().getName().equalsIgnoreCase("next_outer") && ins.getComparison().name().equalsIgnoreCase("EQ")) {// ins.getLabelTarget().getName().equals("")
-                	if(globals.register_file[2] == 0 && !isStalled)
-                	{
-                		globals.program_counter = ins.getLabelTarget().getAddress()-1;
-            			globals.branchTaken = false;
-                	}
-                	else if(globals.register_file[2] != 0 && !isStalled)
-                	{
-                		globals.program_counter = 11;
-                		globals.flushDecode = false;
-                		globals.branchTaken = false;
-                	}
-                	/*if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
-                	{
-                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
-                			globals.branchTaken = false;
-                	}
-                	else if(globals.register_file[2] == 0 && !isStalled)
-                	{
-                		globals.program_counter = ins.getLabelTarget().getAddress()-1;
-            			globals.branchTaken = false;
-                	}
-                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
-                	{
-                		globals.program_counter = 11;
-                		globals.flushDecode = false;
-                		globals.branchTaken = false;
-                	}*/
-                }
-                
-                if (ins.getLabelTarget().getName().equalsIgnoreCase("outer_loop") && ins.getComparison().name().equalsIgnoreCase("LT")) {// ins.getLabelTarget().getName().equals("")
-                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
-                	{
-                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
-                			globals.branchTaken = false;
-                	}
-                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
-                	{
-                		globals.program_counter = 21;
-                		globals.flushDecode = false;
-                		globals.branchTaken = false;
-                	}
-                }
-                
-                if (ins.getLabelTarget().getName().equalsIgnoreCase("next_outer") && ins.getComparison().name().equalsIgnoreCase("GE")) {// ins.getLabelTarget().getName().equals("")
-                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
-                	{
-                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
-                			globals.branchTaken = false;    			
-                	}
-                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
-                	{
-                		globals.program_counter = 16;
-                		globals.flushDecode = false;
-                		globals.branchTaken = false;
-                	}
-                }
-                
-                if (ins.getLabelTarget().getName().equalsIgnoreCase("next_print") && ins.getComparison().name().equalsIgnoreCase("EQ")) {// ins.getLabelTarget().getName().equals("")
-                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
-                	{
-                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
-                			globals.branchTaken = false;
-                	}
-                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
-                	{
-                		globals.program_counter = 26;
-                		globals.flushDecode = false;
-                		globals.branchTaken = false;
-                	}
-                }
-                
-                if (ins.getLabelTarget().getName().equalsIgnoreCase("print_loop") && ins.getComparison().name().equalsIgnoreCase("LT")) {// ins.getLabelTarget().getName().equals("")
-                	if(globals.register_file[ins.getOper0().getRegisterNumber()] == 0 && !isStalled)
-                	{
-                			globals.program_counter = ins.getLabelTarget().getAddress()-1;
-                			globals.branchTaken = false;
-                	}
-                	else if(globals.register_file[ins.getOper0().getRegisterNumber()] == 1 && !isStalled)
-                	{
-                		globals.program_counter = 30;
-                		globals.flushDecode = false;
-                		globals.branchTaken = false;
-                	}
-                }
-                
-			}
-			
-			globals.isStalled = isStalled;
-			//System.out.println("Decode isStalled: " + isStalled);
-			if(!globals.flushDecode && ins.getOpcode() != EnumOpcode.INVALID && ins.getOpcode() != EnumOpcode.STORE && ins.getOpcode() != EnumOpcode.JMP && ins.getOpcode() != EnumOpcode.BRA ) {
-				 int oper0 = ins.getOper0().isRegister() ? ins.getOper0().getRegisterNumber() : 31;
-				globals.register_invalid[oper0] = true;
-			}
-			
-			if(globals.flushDecode)
-				globals.flushDecode = false;
-			
-			int source1 = ins.getSrc1().getRegisterNumber() == -1 ? ins.getSrc1().getValue() : globals.register_file[ins.getSrc1().getRegisterNumber()];
-            int source2 = ins.getSrc2().getRegisterNumber() == -1 ? ins.getSrc2().getValue() : globals.register_file[ins.getSrc2().getRegisterNumber()];
-            int oper0 =   ins.getOper0().getRegisterNumber() == -1 ? ins.getOper0().getValue() : globals.register_file[ins.getOper0().getRegisterNumber()];
-			//ins.getOpcode(2)
-			//System.out.println(ins.getOpcode().toString() + ", source1 value:" + ins.getSrc1().getRegisterNumber() + ":" + source1 + ", Source2 value:" +  ins.getSrc2().getRegisterNumber() + ":" + source2 + ", oper0:" +  ins.getOper0().getRegisterNumber() + ":" + oper0);
-
-            if(ins.getOpcode() == EnumOpcode.LOAD)//ins.getOpcode() == EnumOpcode.STORE || 
-            {
-            	//System.out.println("");
-            	//source1 = ins.getSrc1().getRegisterNumber();
-            	//oper0 = ins.getOper0().getRegisterNumber();
+        /** 
+         * For Fetch, this method only has diagnostic value.  However, 
+         * stageHasWorkToDo is very important for other stages.
+         * 
+         * @return Status of Fetch, indicating that it has fetched an 
+         *         instruction that needs to be sent to Decode.
+         */
+        @Override
+        public boolean stageHasWorkToDo() {
+            return has_work;
+        }
+        
+        @Override
+        public String getStatus() {
+            IGlobals globals = (GlobalData)getCore().getGlobals();
+            if (globals.getPropertyInteger("branch_state_fetch") == GlobalData.BRANCH_STATE_WAITING) {
+                addStatusWord("ResolveWait");
             }
-			
-			int result = MyALU.execute(ins.getOpcode(), source1, source2, oper0);
-			if(ins.getOpcode() == EnumOpcode.ADD || ins.getOpcode() == EnumOpcode.MOVC || ins.getOpcode() == EnumOpcode.CMP)
-			{
-				if(ins.getOpcode() != EnumOpcode.BRA)
-				{
-					//ins.getOper0().setValue(result);
-					if (ins.getOpcode() == EnumOpcode.LOAD || ins.getOpcode() == EnumOpcode.STORE)
-					{
-						globals.value = result;
-						globals.register = 999;
-					}
-					else
-					{
-					globals.value = result;
-					globals.register = ins.getOper0().getRegisterNumber();
-					
-					}
-				}
-				
-			}
+            return super.getStatus();
+        }
 
-			
-			//if(ins.getOpcode()!=EnumOpcode.INVALID)
-				output.setInstruction(ins);
-			// Set other data that's passed to the next stage.
-		}
-
-
-	}
-
-
-	/*** Execute Stage ***/
-	static class Execute extends PipelineStageBase<DecodeToExecute,ExecuteToMemory> {
-		public Execute(CpuCore core, PipelineRegister input, PipelineRegister output) {
-			super(core, input, output);
-		}
-		
-		@Override
-		public void compute(DecodeToExecute input, ExecuteToMemory output) {
-			InstructionBase ins = input.getInstruction();
-			if (ins.isNull()) return;
-			GlobalData globals = (GlobalData)core.getGlobalResources();
-			//globals.register = 9999;
-			/*int source1 = ins.getSrc1().getValue();
-			int source2 = ins.getSrc2().getValue();
-			int oper0 =   ins.getOper0().getValue();
-			*/
-			int source1 = ins.getSrc1().getRegisterNumber() == -1 ? ins.getSrc1().getValue() : globals.register_file[ins.getSrc1().getRegisterNumber()];
-            int source2 = ins.getSrc2().getRegisterNumber() == -1 ? ins.getSrc2().getValue() : globals.register_file[ins.getSrc2().getRegisterNumber()];
-            int oper0 =   ins.getOper0().getRegisterNumber() == -1 ? ins.getOper0().getValue() : globals.register_file[ins.getOper0().getRegisterNumber()];
-			//ins.getOpcode(2)
-			//System.out.println(ins.getOpcode().toString() + ", source1 value:" + ins.getSrc1().getRegisterNumber() + ":" + source1 + ", Source2 value:" +  ins.getSrc2().getRegisterNumber() + ":" + source2 + ", oper0:" +  ins.getOper0().getRegisterNumber() + ":" + oper0);
-
-            if(ins.getOpcode() == EnumOpcode.LOAD)//ins.getOpcode() == EnumOpcode.STORE || 
-            {
-            	//System.out.println("");
-            	//source1 = ins.getSrc1().getRegisterNumber();
-            	//oper0 = ins.getOper0().getRegisterNumber();
+        @Override
+        public void compute(Latch input, Latch output) {
+            IGlobals globals = (GlobalData)getCore().getGlobals();
+            
+            // Get the PC and fetch the instruction
+            int pc_no_branch    = globals.getPropertyInteger(PROGRAM_COUNTER);
+            int pc_taken_branch = globals.getPropertyInteger("program_counter_takenbranch");
+            int branch_state_decode = globals.getPropertyInteger("branch_state_decode");
+            int branch_state_fetch = globals.getPropertyInteger("branch_state_fetch");
+            int pc = (branch_state_decode == GlobalData.BRANCH_STATE_TAKEN) ?
+                    pc_taken_branch : pc_no_branch;
+            InstructionBase ins = globals.getInstructionAt(pc);
+            
+            // Initialize this status flag to assume a stall or bubble condition
+            // by default.
+            has_work = false;
+            
+            // If the instruction is NULL (like we ran off the end of the
+            // program), just return.  However, for diagnostic purposes,
+            // we make sure something meaningful appears when 
+            // CpuSimulator.printStagesEveryCycle is set to true.
+            if (ins.isNull()) {
+                // Fetch is working on no instruction at no address
+                setActivity("----: NULL");
+            } else {            
+                // Since there is no input pipeline register, we have to inform
+                // the diagnostic helper code explicitly what instruction Fetch
+                // is working on.
+                has_work = true;
+                output.setInstruction(ins);
+                setActivity(ins.toString());
             }
-			
-			int result = MyALU.execute(ins.getOpcode(), source1, source2, oper0);
-			
-			if(ins.getOpcode()== EnumOpcode.CMP)
-			{
-				globals.flushDecode = false;
-        		globals.branchTaken = false;
-				//if(result == 0)
-					//globals.branchTaken = true;
-				//else
-					//globals.branchTaken = false;
-				//if ("init_list".equals(ins.getLabelTarget().getName()) && result == 0) // ins.getLabelTarget().getName().equals("")
-                	//globals.program_counter = ins.getLabelTarget().getAddress()-1;
-			}
-			
-			if(ins.getOpcode() == EnumOpcode.STORE)
-				globals.memAddress= result;
-			//else TODO: removed else 
-			
-			if(ins.getOpcode() == EnumOpcode.BRA) {
+            
+            // If the output cannot accept work, then 
+            if (!output.canAcceptWork()) return;
+            
+//            Logger.out.println("No stall");
+            globals.setClockedProperty(PROGRAM_COUNTER, pc + 1);
+            
+            boolean branch_wait = false;
+            if (branch_state_fetch == GlobalData.BRANCH_STATE_WAITING) {
+                branch_wait = true;
+            }
+            if (branch_state_decode != GlobalData.BRANCH_STATE_NULL) {
+//                Logger.out.println("branch state resolved");
+                globals.setClockedProperty("branch_state_fetch", GlobalData.BRANCH_STATE_NULL);
+                globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_NULL);
+                branch_wait = false;
+            }
+            if (!branch_wait) {
+                if (ins.getOpcode().isBranch()) {
+                    globals.setClockedProperty("branch_state_fetch", GlobalData.BRANCH_STATE_WAITING);
+                }
+            }
+        }
+    }
 
-                if (ins.getLabelTarget().getName().equalsIgnoreCase("init_list")) {// ins.getLabelTarget().getName().equals("")
-                	//if(ins.getOper0().getValue() == 0)
-                		//globals.program_counter = ins.getLabelTarget().getAddress();
-                	//globals.branchTaken = false;
-                    /*if(regfile[ins.getOper0().getRegisterNumber()]  == 4) {
-                        globals.program_counter = ins.getLabelTarget().getAddress() - 1;
-                        //globals.branchInDecode = false;
+    
+    /*** Decode Stage ***/
+    static class Decode extends PipelineStageBase {
+        public Decode(ICpuCore core) {
+            super(core, "Decode");
+        }
+        
+        
+        // When a branch is taken, we have to squash the next instruction
+        // sent in by Fetch, because it is the fall-through that we don't
+        // want to execute.  This flag is set only for status reporting purposes.
+        boolean squashing_instruction = false;
+        
+
+        @Override
+        public String getStatus() {
+            IGlobals globals = (GlobalData)getCore().getGlobals();
+            String s = super.getStatus();
+            if (globals.getPropertyBoolean("decode_squash")) {
+                s = "Squashing";
+            }
+            return s;
+        }
+        
+
+//        private static final String[] fwd_regs = {"ExecuteToWriteback", 
+//            "MemoryToWriteback"};
+        
+        @Override
+        public void compute() {
+            // Since this stage has multiple outputs, must read input(s) 
+            // explicitly
+            Latch input = this.readInput(0).duplicate();
+            InstructionBase ins = input.getInstruction();
+
+            // Default to no squashing.
+            squashing_instruction = false;
+            
+            setActivity(ins.toString());
+
+            IGlobals globals = (GlobalData)getCore().getGlobals();
+            if (globals.getPropertyBoolean("decode_squash")) {
+                // Drop the fall-through instruction.
+                globals.setClockedProperty("decode_squash", false);
+                squashing_instruction = false;
+                //setActivity("----: NULL");
+//                globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_NULL);
+                
+                // Squashing the fall-through instruction is "consuming" it, so we
+                // mustn't forget to consume it.
+                input.consume();
+                return;
+            }
+            
+            if (ins.isNull()) return;
+            
+            EnumOpcode opcode = ins.getOpcode();
+            Operand oper0 = ins.getOper0();
+            IRegFile regfile = globals.getRegisterFile();
+            
+            // This code is to prevent having more than one of the same regster
+            // as a destiation register in the pipeline at the same time.
+            if (opcode.needsWriteback()) {
+                int oper0reg = oper0.getRegisterNumber();
+                if (regfile.isInvalid(oper0reg)) {
+                    //Logger.out.println("Stall because dest R" + oper0reg + " is invalid");
+                    setResourceWait("Dest:"+oper0.getRegisterName());
+                    return;
+                }
+            }
+            
+            // See what operands can be fetched from the register file
+            registerFileLookup(input);
+            
+            // See what operands can be fetched by forwarding
+            forwardingSearch(input);
+            
+            Operand src1  = ins.getSrc1();
+            Operand src2  = ins.getSrc2();
+            
+            
+            boolean take_branch = false;
+            int value0 = 0;
+            int value1 = 0;
+            
+            
+            // Find out whether or not DecodeToExecute can accept work.
+            // We do this here for CALL, which can't be allowed to do anything
+            // unless it can pass along its work to Writeback, and we pass
+            // the call return address through Execute.
+            int d2e_output_num = lookupOutput("DecodeToExecute");
+            Latch d2e_output = this.newOutput(d2e_output_num);
+            
+            
+            switch (opcode) {
+                case BRA:
+                    if (!oper0.hasValue()) {
+                        // If we do not already have a value for the branch
+                        // condition register, must stall.
+//                        Logger.out.println("Stall BRA wants oper0 R" + oper0.getRegisterNumber());
+                        this.setResourceWait(oper0.getRegisterName());
+                        // Nothing else to do.  Bail out.
+                        return;
                     }
-                    else{
-                        globals.program_counter = 5;
-                        //globals.branchInDecode = false;
-                    }*/
+                    value0 = oper0.getValue();
+                    
+                    // The CMP instruction just sets its destination to
+                    // (src1-src2).  The result of that is in oper0 for the
+                    // BRA instruction.  See comment in MyALU.java.
+                    switch (ins.getComparison()) {
+                        case EQ:
+                            take_branch = (value0 == 0);
+                            break;
+                        case NE:
+                            take_branch = (value0 != 0);
+                            break;
+                        case GT:
+                            take_branch = (value0 > 0);
+                            break;
+                        case GE:
+                            take_branch = (value0 >= 0);
+                            break;
+                        case LT:
+                            take_branch = (value0 < 0);
+                            break;
+                        case LE:
+                            take_branch = (value0 <= 0);
+                            break;
+                    }
+                    
+                    if (take_branch) {
+                        // If the branch is taken, send a signal to Fetch
+                        // that specifies the branch target address, via
+                        // "globals.next_program_counter_takenbranch".  
+                        // If the label is valid, then use its address.  
+                        // Otherwise, the target address will be found in 
+                        // src1.
+                        if (ins.getLabelTarget().isNull()) {
+                            // If branching to address in register, make sure
+                            // operand is valid.
+                            if (!src1.hasValue()) {
+//                                Logger.out.println("Stall BRA wants src1 R" + src1.getRegisterNumber());
+                                this.setResourceWait(src1.getRegisterName());
+                                // Nothing else to do.  Bail out.
+                                return;
+                            }
+                            
+                            value1 = src1.getValue();
+                        } else {
+                            value1 = ins.getLabelTarget().getAddress();
+                        }
+                        globals.setClockedProperty("program_counter_takenbranch", value1);
+                        
+                        // Send a signal to Fetch, indicating that the branch
+                        // is resolved taken.  This will be picked up by
+                        // Fetch.advanceClock on the same clock cycle.
+                        globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
+                        globals.setClockedProperty("decode_squash", true);
+//                        Logger.out.println("Resolving branch taken");
+                    } else {
+                        // Send a signal to Fetch, indicating that the branch
+                        // is resolved not taken.
+                        globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_NOT_TAKEN);
+//                        Logger.out.println("Resolving branch not taken");
+                    }
+                    
+                    // Having completed execution of the BRA instruction, we must
+                    // explicitly indicate that it has been consumed.
+                    input.consume();
+                    // All done; return.
+                    return;
+                    
+                case JMP:
+                    // JMP is an inconditionally taken branch.  If the
+                    // label is valid, then take its address.  Otherwise
+                    // its operand0 contains the target address.
+                    if (ins.getLabelTarget().isNull()) {
+                        if (!oper0.hasValue()) {
+                            // If branching to address in register, make sure
+                            // operand is valid.
+//                            Logger.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
+                            this.setResourceWait(oper0.getRegisterName());
+                            // Nothing else to do.  Bail out.
+                            return;
+                        }
+                        
+                        value0 = oper0.getValue();
+                    } else {
+                        value0 = ins.getLabelTarget().getAddress();
+                    }
+                    globals.setClockedProperty("program_counter_takenbranch", value0);
+                    globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
+                    globals.setClockedProperty("decode_squash", true);
+                    
+                    // Having completed execution of the JMP instruction, we must
+                    // explicitly indicate that it has been consumed.
+                    input.consume();
+                    return;
+                    
+                case CALL:
+                    // CALL is an inconditionally taken branch.  If the
+                    // label is valid, then take its address.  Otherwise
+                    // its src1 contains the target address.
+                    if (ins.getLabelTarget().isNull()) {
+                        if (!src1.hasValue()) {
+                            // If branching to address in register, make sure
+                            // operand is valid.
+//                            Logger.out.println("Stall JMP wants oper0 R" + oper0.getRegisterNumber());
+                            this.setResourceWait(src1.getRegisterName());
+                            // Nothing else to do.  Bail out.
+                            return;
+                        }
+                        
+                        value1 = src1.getValue();
+                    } else {
+                        value1 = ins.getLabelTarget().getAddress();
+                    }
+                    
+                    // CALL also has a destination register, which is oper0.
+                    // Before we can resolve the branch, we have to make sure
+                    // that the return address can be passed to Writeback
+                    // through Execute.
+                    if (!d2e_output.canAcceptWork()) return;
+                    
+                    // To get the return address into Writeback, we will
+                    // replace the instruction's source operands with the
+                    // address of the instruction and a constant 1.
+                    
+                    Operand pc_operand = Operand.newRegister(Operand.PC_REGNUM);
+                    pc_operand.setIntValue(ins.getPCAddress());
+                    ins.setSrc1(pc_operand);
+                    ins.setSrc2(Operand.newLiteralSource(1));
+                    ins.setLabelTarget(VoidLabelTarget.getVoidLabelTarget());
+                    d2e_output.setInstruction(ins);
+                    
+                    globals.setClockedProperty("program_counter_takenbranch", value1);
+                    globals.setClockedProperty("branch_state_decode", GlobalData.BRANCH_STATE_TAKEN);
+                    globals.setClockedProperty("decode_squash", true);
+                    
+                    d2e_output.write();
+                    input.consume();
+                    return;
+                    
+                    // Having completed execution of the JMP instruction, we must
+                    // explicitly indicate that it has been consumed.
+//                    input.consume();
+//                    return;
+            }
+            
+            
+            // Allocate an output latch for the output pipeline register
+            // appropriate for the type of instruction being processed.
+            Latch output;
+            int output_num;
+            if (opcode == EnumOpcode.MUL) {
+                output_num = lookupOutput("DecodeToMSFU");
+                output = this.newOutput(output_num);
+            }
+            else if(opcode == EnumOpcode.FDIV)
+            {
+            	 output_num = lookupOutput("DecodeToFloatDiv");
+                 output = this.newOutput(output_num);
+            }
+            else if(opcode == EnumOpcode.FADD||opcode == EnumOpcode.FSUB || opcode == EnumOpcode.FCMP)
+            {
+            	System.out.println("sdfaffffffffffffffffffffffffffffffffff");
+            	 output_num = lookupOutput("DecodeToFloatAddSub");
+                 output = this.newOutput(output_num);
+            }
+            else if(opcode == EnumOpcode.FMUL)
+            {
+            	 output_num = lookupOutput("DecodeToFloatMul");
+                 output = this.newOutput(output_num);
+            }
+            else
+            if (opcode.accessesMemory()) {
+                output_num = lookupOutput("DecodeToMemory");
+                output = this.newOutput(output_num);
+            } else {
+                output_num = lookupOutput("DecodeToExecute");
+                output = this.newOutput(output_num);
+            }
+            
+            // If the desired output is stalled, then just bail out.
+            // No inputs have been claimed, so this will result in a
+            // automatic pipeline stall.
+            if (!output.canAcceptWork()) return;
+            
+            
+            int[] srcRegs = new int[3];
+            // Only want to forward to oper0 if it's a source.
+            srcRegs[0] = opcode.oper0IsSource() ? oper0.getRegisterNumber() : -1;
+            srcRegs[1] = src1.getRegisterNumber();
+            srcRegs[2] = src2.getRegisterNumber();
+            Operand[] operArray = {oper0, src1, src2};
+            
+            // Loop over source operands, looking to see if any can be
+            // forwarded to the next stage.
+            for (int sn=0; sn<3; sn++) {
+                int srcRegNum = srcRegs[sn];
+                // Skip any operands that are not register sources
+                if (srcRegNum < 0) continue;
+                // Skip any that already have values
+                if (operArray[sn].hasValue()) continue;
+                
+                String propname = "forward" + sn;
+                if (!input.hasProperty(propname)) {
+                    // If any source operand is not available
+                    // now or on the next cycle, then stall.
+                    //Logger.out.println("Stall because no " + propname);
+                    this.setResourceWait(operArray[sn].getRegisterName());
+                    // Nothing else to do.  Bail out.
+                    return;
+                }
+            }
+            
+            
+            if (CpuSimulator.printForwarding) {
+                for (int sn=0; sn<3; sn++) {
+                    String propname = "forward" + sn;
+                    if (input.hasProperty(propname)) {
+                        String operName = PipelineStageBase.operNames[sn];
+                        String srcFoundIn = input.getPropertyString(propname);
+                        String srcRegName = operArray[sn].getRegisterName();
+                        Logger.out.printf("# Posting forward %s from %s to %s next stage\n", 
+                                srcRegName,
+                                srcFoundIn, operName);
+                    }
+                }
+            }            
+                    
+            // If we managed to find all source operands, mark the destination
+            // register invalid then finish putting data into the output latch 
+            // and send it.
+            
+            // Mark the destination register invalid
+            if (opcode.needsWriteback()) {
+                int oper0reg = oper0.getRegisterNumber();
+                regfile.markInvalid(oper0reg);
+            }            
+            
+            // Copy the forward# properties
+            output.copyAllPropertiesFrom(input);
+            // Copy the instruction
+            output.setInstruction(ins);
+            // Send the latch data to the next stage
+            output.write();
+            
+            // And don't forget to indicate that the input was consumed!
+            input.consume();
+        }
+    }
+    
+
+    /*** Execute Stage ***/
+    static class Execute extends PipelineStageBase {
+        public Execute(ICpuCore core) {
+            super(core, "Execute");
+        }
+
+        @Override
+        public void compute(Latch input, Latch output) {
+            if (input.isNull()) return;
+            doPostedForwarding(input);
+            InstructionBase ins = input.getInstruction();
+
+            int source1 = ins.getSrc1().getValue();
+            int source2 = ins.getSrc2().getValue();
+            int oper0 =   ins.getOper0().getValue();
+
+            int result = MyALU.execute(ins.getOpcode(), source1, source2, oper0);
+                        
+            boolean isfloat = ins.getSrc1().isFloat() || ins.getSrc2().isFloat();
+            output.setResultValue(result, isfloat);
+            output.setInstruction(ins);
+        }
+    }
+    
+
+    /*** Memory Stage ***/
+    static class Memory extends PipelineStageBase {
+        public Memory(ICpuCore core) {
+            super(core, "Memory");
+        }
+
+        @Override
+        public void compute(Latch input, Latch output) {
+            if (input.isNull()) return;
+            doPostedForwarding(input);
+            InstructionBase ins = input.getInstruction();
+            setActivity(ins.toString());
+
+            Operand oper0 = ins.getOper0();
+            int oper0val = ins.getOper0().getValue();
+            int source1 = ins.getSrc1().getValue();
+            int source2 = ins.getSrc2().getValue();
+            
+            // The Memory stage no longer follows Execute.  It is an independent
+            // functional unit parallel to Execute.  Therefore we must perform
+            // address calculation here.
+            int addr = source1 + source2;
+            
+            int value = 0;
+            IGlobals globals = (GlobalData)getCore().getGlobals();
+            int[] memory = globals.getPropertyIntArray(MAIN_MEMORY);
+
+            switch (ins.getOpcode()) {
+                case LOAD:
+                    // Fetch the value from main memory at the address
+                    // retrieved above.
+                    value = memory[addr];
+                    output.setResultValue(value);
+                    output.setInstruction(ins);
+                    addStatusWord("Mem[" + addr + "]");
+                    break;
+                
+                case STORE:
+                    // For store, the value to be stored in main memory is
+                    // in oper0, which was fetched in Decode.
+                    memory[addr] = oper0val;
+                    addStatusWord("Mem[" + addr + "]=" + ins.getOper0().getValueAsString());
+                    return;
+                    
+                default:
+                    throw new RuntimeException("Non-memory instruction got into Memory stage");
+            }
+        }
+    }
+    
+    //New Stage added as IntDiv
+    static class IntDiv extends PipelineStageBase {
+        public IntDiv(ICpuCore core) {
+            super(core, "IntDiv");
+        }
+
+        @Override
+        public void compute(Latch input, Latch output) {
+            if (input.isNull()) return;
+            doPostedForwarding(input);
+            InstructionBase ins = input.getInstruction();
+
+            int source1 = ins.getSrc1().getValue();
+            int source2 = ins.getSrc2().getValue();
+            int oper0 =   ins.getOper0().getValue();
+
+            int result = MyALU.execute(ins.getOpcode(), source1, source2, oper0);
+                        
+            boolean isfloat = ins.getSrc1().isFloat() || ins.getSrc2().isFloat();
+            output.setResultValue(result, isfloat);
+            output.setInstruction(ins);
+        }
+    }
+    
+    
+    /**FloatDiv Stage***/
+    
+    static class FloatDiv extends PipelineStageBase {
+        public FloatDiv(ICpuCore core) {
+            super(core, "FloatDiv");
+        }
+
+        @Override
+        public void compute(Latch input, Latch output) {
+            if (input.isNull()) return;
+            doPostedForwarding(input);
+            InstructionBase ins = input.getInstruction();
+            
+            GlobalData gd = new GlobalData();
+            if(gd.waitingTime == 0)
+            {
+            	float source1;
+                float source2;
+                if(ins.getSrc1().isFloat())
+                {
+                	source1 = ins.getSrc1().getFloatValue();
+                }
+                else
+                {
+                	source1 = ins.getSrc1().getValue();
+                }
+                if(ins.getSrc2().isFloat())
+                {
+                	source2 = ins.getSrc2().getFloatValue();
+                }
+                else
+                {
+                	source2 = ins.getSrc2().getValue();
+                }
+                gd.floatingDivRes = (source1/source2);
+                gd.waitingTime++;
+                this.setResourceWait("waiting");
+                }
+            else
+            {
+            	if(gd.waitingTime == 15)
+            	{
+            		output.setInstruction(ins);
+            		output.setResultFloatValue(gd.floatingDivRes);
+            		gd.waitingTime=0;
+            	}
+            	else
+            	{
+            		gd.waitingTime++;
+            		this.setResourceWait("waiting");
+            	}
+            }
+            
+        }
+    }
+    
+
+
+    /*** Writeback Stage ***/
+    static class Writeback extends PipelineStageBase {
+        public Writeback(CpuCore core) {
+            super(core, "Writeback");
+        }
+
+        @Override
+        public void compute() {
+            IGlobals globals = (GlobalData)getCore().getGlobals();
+            // Get register file and valid flags from globals
+            IRegFile regfile = globals.getRegisterFile();
+            
+            // Writeback has multiple inputs, so we just loop over them
+            int num_inputs = this.getInputRegisters().size();
+            for (int i=0; i<num_inputs; i++) {
+                // Get the input by index and the instruction it contains
+                Latch input = readInput(i);
+                
+                // Skip to the next iteration of there is no instruction.
+                if (input.isNull()) continue;
+                
+                InstructionBase ins = input.getInstruction();
+                
+                if (ins.getOpcode().needsWriteback()) {
+                    // By definition, oper0 is a register and the destination.
+                    // Get its register number;
+                    Operand op = ins.getOper0();
+                    String regname = op.getRegisterName();
+                    int regnum = op.getRegisterNumber();
+                    int value = input.getResultValue();
+                    boolean isfloat = input.isResultFloat();
+
+                    addStatusWord(regname + "=" + input.getResultValueAsString());
+                    regfile.setValue(regnum, value, isfloat);
+                }
+
+                if (input.getInstruction().getOpcode() == EnumOpcode.HALT) {
+                    globals.setProperty("running", false);
                 }
                 
-                
-			}
-			if(ins.getOpcode() == EnumOpcode.ADD || ins.getOpcode() == EnumOpcode.MOVC || ins.getOpcode() == EnumOpcode.CMP)
-			{
-				if(ins.getOpcode() != EnumOpcode.BRA)
-				{
-					ins.getOper0().setValue(result);
-					if (ins.getOpcode() == EnumOpcode.LOAD || ins.getOpcode() == EnumOpcode.STORE)
-					{
-						
-					}
-					else
-					{
-					//globals.value = result;
-				//	globals.register = ins.getOper0().getRegisterNumber();
-					
-					}
-				}
-				
-			}
-			//dumpForwardingData()
-			
-			// Fill output with what passes to Memory stage...
-			output.setInstruction(ins);
-			// Set other data that's passed to the next stage.
-		}
-	}
-
-
-	/*** Memory Stage ***/
-	static class Memory extends PipelineStageBase<ExecuteToMemory,MemoryToWriteback> {
-		public Memory(CpuCore core, PipelineRegister input, PipelineRegister output) {
-			super(core, input, output);
-		}
-
-		@Override
-		public void compute(ExecuteToMemory input, MemoryToWriteback output) {
-			InstructionBase ins = input.getInstruction();
-			if (ins.isNull()) return;
-
-			// Access memory...
-			GlobalData globals = (GlobalData)core.getGlobalResources();
-			int mem[] = globals.memory;
-			if(ins.getOpcode() == EnumOpcode.LOAD)
-            {
-				ins.getOper0().setValue(mem[ins.getOper0().getValue()]);
+                // There are no outputs that could stall, so just consume
+                // all valid inputs.
+                input.consume();
             }
-			if(ins.getOpcode() == EnumOpcode.STORE)
-            {
-            	mem[globals.memAddress] = ins.getOper0().getValue();
-            	int src1 = globals.register_file[ins.getSrc1().getRegisterNumber()];
-            	int src2 = ins.getSrc2().getValue();
-            	mem[src1+src2] = globals.memAddress;
-            	
-            }
-
-			output.setInstruction(ins);
-			// Set other data that's passed to the next stage.
-		}
-	}
-
-
-	/*** Writeback Stage ***/
-	static class Writeback extends PipelineStageBase<MemoryToWriteback,VoidLatch> {
-		public Writeback(CpuCore core, PipelineRegister input, PipelineRegister output) {
-			super(core, input, output);
-		}
-
-		@Override
-		public void compute(MemoryToWriteback input, VoidLatch output) {
-
-
-			GlobalData globals = (GlobalData)core.getGlobalResources();
-			//int[] regfile = globals.register_file;
-
-
-			InstructionBase ins = input.getInstruction();
-			if (ins.isNull()) return;
-			// Write back result to register file
-			if(ins.getOpcode() == EnumOpcode.MOVC)
-			{
-				globals.register_file[ins.getOper0().getRegisterNumber()] = ins.getOper0().getValue();
-				globals.register_invalid[ins.getOper0().getRegisterNumber()] = false;
-				//regfile[ins.getOper0().getRegisterNumber()] = ins.getSrc1().getValue();
-			}
-			if(ins.getOpcode() == EnumOpcode.ADD || ins.getOpcode() == EnumOpcode.CMP)
-			{
-				globals.register_file[ins.getOper0().getRegisterNumber()] = ins.getOper0().getValue();
-				globals.register_invalid[ins.getOper0().getRegisterNumber()] = false;
-				/*int srcreg1 = regfile[ins.getSrc1().getRegisterNumber()];
-				if(ins.getSrc2().isRegister())
-				{
-					int srcreg2 = regfile[ins.getSrc2().getRegisterNumber()];
-					regfile[ins.getOper0().getRegisterNumber()] = srcreg1 + srcreg2;
-				}
-				else
-				{
-					regfile[ins.getOper0().getRegisterNumber()] = srcreg1 + ins.getSrc2().getValue();
-				}*/
-			}
-			if(ins.getOpcode() == EnumOpcode.LOAD)
-			{
-				globals.register_file[ins.getOper0().getRegisterNumber()] = ins.getOper0().getValue();
-				globals.register_invalid[ins.getOper0().getRegisterNumber()] = false;
-				//regfile[ins.getOper0().getRegisterNumber()] = ins.getSrc1().getValue();
-			}
-			
-
-				if (input.getInstruction().getOpcode() == EnumOpcode.HALT) {
-					globals.completedExecution = 1;
-					//System.out.println("Code Cycle " + globals.globalCounter);
-					
-					for(int i = 0; i < globals.memory.length; i++)
-						System.out.print(globals.memory[i] + " ");
-					// Stop the simulation
-				}
-			}
-		}
-	}
+        }
+    }
+}

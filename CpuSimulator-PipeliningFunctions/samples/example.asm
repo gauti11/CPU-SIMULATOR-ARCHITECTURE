@@ -1,0 +1,3 @@
+FCMP R1,10,4
+fout R1
+HALT
